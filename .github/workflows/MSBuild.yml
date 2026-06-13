@@ -1,0 +1,55 @@
+# This workflow uses actions that are not certified by GitHub.
+# They are provided by a third-party and are governed by
+# separate terms of service, privacy policy, and support
+# documentation.
+
+name: MSBuild
+
+on:
+  push:
+    branches: [ "ExplorerEx-Vista" ]
+  pull_request:
+    branches: [ "ExplorerEx-Vista" ]
+
+env:
+  # Path to the solution file relative to the root of the project.
+  SOLUTION_FILE_PATH: .
+
+  # Configuration type to build.
+  # You can convert this to a build matrix if you need coverage of multiple configuration types.
+  # https://docs.github.com/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
+  BUILD_CONFIGURATION: Release
+
+permissions:
+  contents: read
+
+jobs:
+  build-release:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: 'true'
+    - uses: ilammy/msvc-dev-cmd@v1.13.0
+      with:
+        arch: amd64
+        
+    - uses: NuGet/setup-nuget@v2
+    - name: Restore NuGet packages
+      run: nuget restore explorer.sln
+        
+    - name: Compile ExplorerEx-Vista (explorer.exe + ExplorerEx.Shell32.dll)
+      run: |
+        msbuild explorer.sln /p:Configuration=Release /p:Platform=x64
+    - name: Set short git commit SHA
+      id: vars
+      shell: bash
+      run: |
+        calculatedSha=$(git rev-parse --short ${{ github.sha }})
+        echo "COMMIT_SHORT_SHA=$calculatedSha" >> $GITHUB_ENV
+    - name: Upload exe
+      uses: actions/upload-artifact@v4.4.0
+      with:
+        name: ExplorerEx-${{ env.COMMIT_SHORT_SHA }}
+        path: |
+          .\build\bin\Release\x64\
